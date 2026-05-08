@@ -1,0 +1,25 @@
+respond:
+  api_key: "YOUR_RESPOND_IO_API_KEY"
+  inbox_id: "YOUR_INBOX_ID"
+  alba_phone: "+971XXXXXXXXX"
+
+odoo:
+  url: "https://your-odoo-instance.com"
+  db: "your_db_name"
+  username: "your@email.com"
+  api_key: "YOUR_ODOO_API_KEY"
+
+sheets:
+  results_sheet_id: "YOUR_RESULTS_GOOGLE_SHEET_ID"
+  stock_sheet_id: "YOUR_STOCK_GOOGLE_SHEET_ID"
+  stock_sheet_name: "Sheet1"
+
+whatsapp:
+  node_service_url: "http://localhost:3000"
+  your_number: "+971XXXXXXXXX"
+  alba_number: "+971XXXXXXXXX"
+
+timing:
+  reply_poll_seconds: 15
+  odoo_wait_seconds: 60
+  message_delay_seconds: 2
