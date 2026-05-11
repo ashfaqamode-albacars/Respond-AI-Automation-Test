@@ -12,6 +12,7 @@ Each test:
 
 import time
 import pytest
+from python.utils import ai_check
 from utils import whatsapp, respond, odoo, sheets_stock, sheets_results
 from utils.config import load_config
 from tests.conftest import assert_reply_contains, assert_reply_language, assert_reply_has_url
@@ -30,7 +31,7 @@ def run_test(
     reply_keywords: list[str] = None,
     reply_language: str = "english",
     reply_url_fragment: str = None,
-    odoo_checks: dict = None,    # e.g. {"x_lifecycle": "Not Interested"}
+    odoo_checks: dict = None,    # e.g. {"x_studio_stage_id": "Not Interested"}
     odoo_activity_type: str = None,
     expect_no_odoo_activity: bool = False,
 ):
@@ -48,10 +49,15 @@ def run_test(
     # 4. Assert reply
     respond_parts = []
 
+    ai_notes_parts = []
+
     if reply_keywords:
         passed, detail = assert_reply_contains(reply, reply_keywords)
         respond_parts.append(("keywords", passed, detail))
-
+        if not passed:
+            actual_text = reply.get("message", {}).get("text", "") if reply else ""
+            verdict, explanation = ai_check.ai_check_reply(actual_text, expected_description)
+            ai_notes_parts.append(f"Keyword check failed → AI: {verdict}: {explanation}")
     lang_passed, lang_detail = assert_reply_language(reply, reply_language)
     respond_parts.append(("language", lang_passed, lang_detail))
 
@@ -117,13 +123,13 @@ def run_test(
     # 6. Log to Sheets
     actual_reply_text = (reply.get("message", {}).get("text", "") if reply else "NO REPLY")[:500]
     overall_pass = respond_all_passed and odoo_all_passed
-
+    ai_notes = " | ".join(ai_notes_parts)
     if overall_pass:
         sheets_results.log_pass(test_name, message, expected_description,
-                                actual_reply_text, respond_summary, odoo_summary)
+                                actual_reply_text, respond_summary, odoo_summary, ai_notes=ai_notes)
     else:
         sheets_results.log_fail(test_name, message, expected_description,
-                                actual_reply_text, respond_summary, odoo_summary)
+                                actual_reply_text, respond_summary, odoo_summary, ai_notes=ai_notes)
 
     # 7. Pytest assertion (causes test to fail in runner if something is wrong)
     assert reply is not None, f"[{test_name}] No reply received within timeout"
@@ -182,7 +188,7 @@ def test_not_interested(your_phone, clean_contact):
         your_phone=your_phone,
         clean_contact=clean_contact,
         reply_keywords=["understand", "thank"],
-        odoo_checks={"x_lifecycle": "Not Interested"},
+        odoo_checks={"x_studio_stage_id": "Not Interested"},
     )
 
 
@@ -194,7 +200,7 @@ def test_job_seeker(your_phone, clean_contact):
         your_phone=your_phone,
         clean_contact=clean_contact,
         reply_keywords=["career", "position"],
-        odoo_checks={"x_lifecycle": "Disqualified"},
+        odoo_checks={"x_studio_stage_id": "Disqualified"},
     )
 
 
@@ -211,7 +217,7 @@ def test_purchase_eligible(your_phone, clean_contact):
         your_phone=your_phone,
         clean_contact=clean_contact,
         reply_keywords=["consignment"],
-        odoo_checks={"x_department": "Purchasing"},
+        odoo_checks={"x_studio_department": "Purchasing"},
         odoo_activity_type="Meeting",
     )
 
@@ -229,7 +235,7 @@ def test_purchase_leaving_country(your_phone, clean_contact):
         your_phone=your_phone,
         clean_contact=clean_contact,
         reply_keywords=["consignment"],
-        odoo_checks={"x_department": "Purchasing"},
+        odoo_checks={"x_studio_department": "Purchasing"},
         odoo_activity_type="Meeting",
     )
 
@@ -246,7 +252,7 @@ def test_purchase_disqualified(your_phone, clean_contact):
         your_phone=your_phone,
         clean_contact=clean_contact,
         reply_keywords=["unfortunately", "criteria"],
-        odoo_checks={"x_lifecycle": "Disqualified"},
+        odoo_checks={"x_studio_stage_id": "Disqualified"},
     )
 
 
@@ -384,7 +390,7 @@ def test_ai_fallback(your_phone, clean_contact):
         your_phone=your_phone,
         clean_contact=clean_contact,
         reply_keywords=["moment", "back"],
-        odoo_checks={"x_lifecycle": "Help Emma"},
+        odoo_checks={"x_studio_stage_id": "Help Emma"},
     )
 
 

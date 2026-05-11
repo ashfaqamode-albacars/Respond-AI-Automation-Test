@@ -71,7 +71,7 @@ def poll_for_reply(contact_id: str, sent_after_ts: float, max_wait: int = None) 
 def get_contact_fields(contact_id: str) -> dict:
     """Get all fields for a contact including lifecycle, department, stock number etc."""
     resp = requests.get(
-        f"{BASE_URL}/contact/{contact_id}",
+        f"{BASE_URL}/contact/id:{contact_id}",
         headers=_headers(),
         timeout=10,
     )

@@ -19,6 +19,9 @@ whatsapp:
   your_number: "+971XXXXXXXXX"
   alba_number: "+971XXXXXXXXX"
 
+openai:
+  api_key: "YOUR_OPENAI_API_KEY"
+
 timing:
   reply_poll_seconds: 15
   odoo_wait_seconds: 60

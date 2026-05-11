@@ -18,6 +18,7 @@ HEADERS = [
     "Respond.io Result",
     "Odoo Result",
     "Overall",
+    "AI Notes",    
 ]
 
 
@@ -60,6 +61,7 @@ def log_result(
     respond_result: str,
     odoo_result: str,
     overall: str,
+    ai_notes="" 
 ):
     """Append one result row to the Google Sheet."""
     cfg = load_config()
@@ -74,6 +76,7 @@ def log_result(
         respond_result,
         odoo_result,
         overall,
+        ai_notes
     ]
 
     _get_service().spreadsheets().values().append(
@@ -86,18 +89,18 @@ def log_result(
 
 
 def log_pass(test_name: str, message_sent: str, expected: str, actual_reply: str,
-             respond_detail: str = "PASS", odoo_detail: str = "PASS"):
+             respond_detail: str = "PASS", odoo_detail: str = "PASS", ai_notes=""):
     log_result(test_name, message_sent, expected, actual_reply,
-               respond_detail, odoo_detail, "✅ PASS")
+               respond_detail, odoo_detail, "✅ PASS", ai_notes=ai_notes)
 
 
 def log_fail(test_name: str, message_sent: str, expected: str, actual_reply: str,
-             respond_detail: str = "", odoo_detail: str = ""):
+             respond_detail: str = "", odoo_detail: str = "", ai_notes=""):
     log_result(test_name, message_sent, expected, actual_reply,
-               respond_detail, odoo_detail, "❌ FAIL")
+               respond_detail, odoo_detail, "❌ FAIL", ai_notes=ai_notes)
 
 
 def log_partial(test_name: str, message_sent: str, expected: str, actual_reply: str,
-                respond_detail: str = "", odoo_detail: str = ""):
+                respond_detail: str = "", odoo_detail: str = "", ai_notes=""):
     log_result(test_name, message_sent, expected, actual_reply,
-               respond_detail, odoo_detail, "⚠️ PARTIAL")
+               respond_detail, odoo_detail, "⚠️ PARTIAL", ai_notes=ai_notes)
