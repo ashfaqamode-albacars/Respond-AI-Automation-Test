@@ -49,9 +49,9 @@ def test_book_then_cancel(your_phone, clean_contact, cfg):
     lead = odoo.wait_and_get_lead(your_phone)
     if lead:
         activities = odoo.get_activities_for_lead(lead["id"])
-        has_meeting = odoo.has_activity_of_type(activities, "Meeting")
-        results.append(("odoo_meeting_created", has_meeting,
-                         f"Meeting activity: {'found ✅' if has_meeting else 'NOT found ❌'}"))
+        has_meeting = odoo.has_activity_of_type(activities, "Visit")
+        results.append(("odoo_visit_created", has_meeting,
+                         f"Visit activity: {'found ✅' if has_meeting else 'NOT found ❌'}"))
     else:
         results.append(("odoo_lead", False, "No lead found in Odoo after booking"))
 
@@ -73,9 +73,9 @@ def test_book_then_cancel(your_phone, clean_contact, cfg):
     time.sleep(30)
     if lead:
         activities_after = odoo.get_activities_for_lead(lead["id"])
-        no_meeting = not odoo.has_activity_of_type(activities_after, "Meeting")
-        results.append(("odoo_meeting_removed", no_meeting,
-                         f"Meeting removed: {'✅' if no_meeting else '❌ still present'}"))
+        no_visit = not odoo.has_activity_of_type(activities_after, "Visit")
+        results.append(("odoo_visit_removed", no_visit,
+                         f"Visit removed: {'✅' if no_visit else '❌ still present'}"))
 
     # Log and assert
     all_passed = all(p for _, p, _ in results)
@@ -194,11 +194,11 @@ def test_aftercare_flow(your_phone, clean_contact, cfg):
     ai_notes = " | ".join(d for n, _, d in results if "ai_check" in n)
     if all_passed:
         sheets_results.log_pass(test_name, f"1: {msg1} | 2: {msg2}",
-                                "Form link sent then aftercare WhatsApp link sent",
+                                "Form link sent then aftercare WhatsApp link or number/contact sent",
                                 reply_preview, respond_detail, "N/A", ai_notes=ai_notes)
     else:
         sheets_results.log_fail(test_name, f"1: {msg1} | 2: {msg2}",
-                                "Form link sent then aftercare WhatsApp link sent",
+                                "Form link sent then aftercare WhatsApp link or number/contact sent",
                                 reply_preview, respond_detail, "N/A", ai_notes=ai_notes)
 
     for name, passed, detail in results:

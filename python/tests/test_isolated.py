@@ -157,27 +157,27 @@ def test_coming_soon(your_phone, clean_contact):
         expect_no_odoo_activity=True,
     )
 
+# Being Done in FLows Test
+# def test_aftercare_pre_form(your_phone, clean_contact):
+#     run_test(
+#         test_name="Aftercare — Pre form submission",
+#         message="Hey I have an issue with my car and since it's still under warranty with you guys I'm hoping you could help. There is some weird knocking in the engine bay.",
+#         expected_description="Form link sent to customer",
+#         your_phone=your_phone,
+#         clean_contact=clean_contact,
+#         reply_keywords=["form"],
+#     )
 
-def test_aftercare_pre_form(your_phone, clean_contact):
-    run_test(
-        test_name="Aftercare — Pre form submission",
-        message="Hey I have an issue with my car and since it's still under warranty with you guys I'm hoping you could help. There is some weird knocking in the engine bay.",
-        expected_description="Form link sent to customer",
-        your_phone=your_phone,
-        clean_contact=clean_contact,
-        reply_keywords=["form"],
-    )
-
-
-def test_aftercare_post_form(your_phone, clean_contact):
-    run_test(
-        test_name="Aftercare — Post form submission",
-        message="I've already submitted the form.",
-        expected_description="WhatsApp aftercare link sent",
-        your_phone=your_phone,
-        clean_contact=clean_contact,
-        reply_keywords=["whatsapp"],
-    )
+# Being Done in FLows Test
+# def test_aftercare_post_form(your_phone, clean_contact):
+#     run_test(
+#         test_name="Aftercare — Post form submission",
+#         message="I've already submitted the form.",
+#         expected_description="WhatsApp aftercare link sent",
+#         your_phone=your_phone,
+#         clean_contact=clean_contact,
+#         reply_keywords=["whatsapp"],
+#     )
 
 
 def test_not_interested(your_phone, clean_contact):
