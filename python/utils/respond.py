@@ -42,7 +42,7 @@ def get_latest_message(contact_id: str) -> Optional[dict]:
     return ai_messages[0] if ai_messages else None
 
 
-def poll_for_reply(contact_id: str, sent_after_ts: float, max_wait: int = None) -> Optional[dict]:
+def poll_for_reply(contact_id: str, sent_after_ts: float, max_wait: int = None, retries: int = 2, retry_gap: float = 2.0) -> Optional[dict]:
     """
     Poll until a new ai_agent message appears after sent_after_ts.
     sent_after_ts is a Python time.time() value (seconds).
@@ -53,18 +53,19 @@ def poll_for_reply(contact_id: str, sent_after_ts: float, max_wait: int = None) 
     interval = 2
     elapsed = 0
     sent_after_ms = sent_after_ts * 1000  # convert to ms for comparison
-
-    while elapsed < timeout:
-        msg = get_latest_message(contact_id)
-        if msg:
-            # Use the first status timestamp (when message was created)
-            statuses = msg.get("status", [])
-            msg_ts_ms = statuses[0].get("timestamp", 0) if statuses else 0
-            if msg_ts_ms > sent_after_ms:
-                return msg
-        time.sleep(interval)
-        elapsed += interval
-
+    for attempt in range(retries):
+        elapsed = 0  # ← reset here
+        while elapsed < timeout:
+            msg = get_latest_message(contact_id)
+            if msg:
+                statuses = msg.get("status", [])
+                msg_ts_ms = statuses[0].get("timestamp", 0) if statuses else 0
+                if msg_ts_ms > sent_after_ms:
+                    return msg
+            time.sleep(interval)
+            elapsed += interval
+        if attempt < retries - 1:
+            time.sleep(retry_gap)
     return None
 
 

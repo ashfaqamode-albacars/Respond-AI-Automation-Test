@@ -92,7 +92,7 @@ def get_activities_for_lead(lead_id: int) -> List[dict]:
     )
 
 
-def wait_and_get_lead(phone: str, wait_seconds: int = None) -> Optional[dict]:
+def wait_and_get_lead(phone: str, wait_seconds: int = None, retries: int = 2, retry_gap: float = 2.0) -> Optional[dict]:
     """
     Wait for Odoo sync then return the lead for this phone number.
 
@@ -103,8 +103,13 @@ def wait_and_get_lead(phone: str, wait_seconds: int = None) -> Optional[dict]:
     cfg = load_config()
     wait = wait_seconds or cfg["timing"]["odoo_wait_seconds"]
     time.sleep(wait)
-    return get_lead_by_phone(phone)
-
+    for attempt in range(retries):
+        lead = get_lead_by_phone(phone)
+        if lead:
+            return lead
+        if attempt < retries - 1:
+            time.sleep(retry_gap)
+    return None
 
 def assert_lead_field(lead: dict, field: str, expected_value, label: str = None) -> tuple[bool, str]:
     """
