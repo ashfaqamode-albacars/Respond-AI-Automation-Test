@@ -18,58 +18,64 @@ def _call(endpoint: str, payload: dict) -> dict:
 
 
 def authenticate() -> int:
-    """Authenticate with Odoo and return the user ID (uid)."""
     global _uid
     if _uid:
         return _uid
     cfg = load_config()
-    result = _call("/web/session/authenticate", {
+    result = _call("/jsonrpc", {
         "jsonrpc": "2.0",
         "method": "call",
+        "id": 1,
         "params": {
-            "db": cfg["odoo"]["db"],
-            "login": cfg["odoo"]["username"],
-            "password": cfg["odoo"]["api_key"],
-        },
+            "service": "common",
+            "method": "authenticate",
+            "args": [
+                cfg["odoo"]["db"],
+                cfg["odoo"]["username"],
+                cfg["odoo"]["api_key"],
+                {}
+            ] 
+            # "kwargs": { # "fields": fields, # "limit": limit, # "context": {"uid": uid}, # },
+        }
     })
-    _uid = result.get("uid")
-    if not _uid:
+    if not result:
         raise RuntimeError("Odoo authentication failed. Check credentials in config.yaml.")
+    _uid = result
     return _uid
 
 
 def search_read(model: str, domain: list, fields: list, limit: int = 10) -> List[dict]:
-    """Generic search_read on any Odoo model."""
     cfg = load_config()
     uid = authenticate()
-    return _call("/web/dataset/call_kw", {
+    return _call("/jsonrpc", {
         "jsonrpc": "2.0",
         "method": "call",
         "params": {
-            "model": model,
-            "method": "search_read",
-            "args": [domain],
-            "kwargs": {
-                "fields": fields,
-                "limit": limit,
-                "context": {"uid": uid},
-            },
+            "service": "object",
+            "method": "execute_kw",
+            "args": [
+                cfg["odoo"]["db"],
+                uid,
+                cfg["odoo"]["api_key"],
+                model,
+                "search_read",
+                [domain],
+                {
+                    "fields": fields,
+                    "limit": limit,
+                }
+            ],
         },
     })
 
-
 def get_lead_by_phone(phone: str) -> Optional[dict]:
-    """
-    Find the most recent CRM lead in x_sales_crm matching a phone number.
-    Phone is matched against partner_phone or mobile fields.
-    """
-    # Try mobile first, then phone
-    for field in ["mobile", "partner_phone"]:
+    phone_clean = phone.lstrip("+")
+    for field in ["x_studio_partner_phone"]:
         leads = search_read(
             model="x_sales_crm",
-            domain=[(field, "=", phone)],
-            fields=["id", "name", "stage_id", "x_lifecycle", "x_department",
-                    "x_stock_number", "mobile", "partner_phone", "create_date"],
+            domain=[(field, "ilike", phone_clean)],
+            fields=["id", "x_name", "x_studio_stage_id", "x_studio_department",
+                    "x_studio_stock_car", "x_studio_partner_phone", "create_date"],
             limit=1,
         )
         if leads:
@@ -82,7 +88,7 @@ def get_activities_for_lead(lead_id: int) -> List[dict]:
     return search_read(
         model="mail.activity",
         domain=[("res_id", "=", lead_id), ("res_model", "=", "x_sales_crm")],
-        fields=["id", "activity_type_id", "summary", "date_deadline", "note", "state"],
+        fields=["id", "activity_type_id", "summary", "x_studio_due_date_time", "note", "state"],
     )
 
 

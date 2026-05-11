@@ -69,7 +69,7 @@ def assert_reply_contains(reply: dict, keywords: list[str], case_sensitive: bool
     """Assert that the AI reply text contains all given keywords."""
     if not reply:
         return False, "No reply received within timeout"
-    text = reply.get("text", "") or ""
+    text = reply.get("message", {}).get("text", "") or ""
     if not case_sensitive:
         text = text.lower()
         keywords = [k.lower() for k in keywords]
@@ -86,7 +86,7 @@ def assert_reply_language(reply: dict, language: str) -> tuple[bool, str]:
     """
     if not reply:
         return False, "No reply received"
-    text = reply.get("text", "") or ""
+    text = reply.get("message", {}).get("text", "") or ""
 
     # Arabic Unicode range: \u0600-\u06FF
     has_arabic = any('\u0600' <= c <= '\u06FF' for c in text)
@@ -105,7 +105,7 @@ def assert_reply_has_url(reply: dict, url_fragment: str) -> tuple[bool, str]:
     """Assert the reply contains a URL containing url_fragment."""
     if not reply:
         return False, "No reply received"
-    text = reply.get("text", "") or ""
+    text = reply.get("message", {}).get("text", "") or ""
     if url_fragment.lower() in text.lower():
         return True, f"Reply contains URL fragment '{url_fragment}'"
     return False, f"Reply does not contain URL fragment '{url_fragment}'. Got: '{text[:300]}'"

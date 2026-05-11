@@ -115,7 +115,7 @@ def run_test(
     odoo_summary = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in odoo_parts) or "N/A"
 
     # 6. Log to Sheets
-    actual_reply_text = (reply.get("text", "") if reply else "NO REPLY")[:500]
+    actual_reply_text = (reply.get("message", {}).get("text", "") if reply else "NO REPLY")[:500]
     overall_pass = respond_all_passed and odoo_all_passed
 
     if overall_pass:

@@ -22,6 +22,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+node/.wwebjs_auth/
+node/.wwebjs_cache/
 
 # Local config / secrets
 python/config/config.yaml
