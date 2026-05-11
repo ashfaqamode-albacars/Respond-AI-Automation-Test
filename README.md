@@ -87,6 +87,8 @@ python -m pytest python/tests/test_isolated.py::test_coming_soon -v
 python -m pytest python/tests/test_flows.py::test_book_then_cancel -v
 ```
 
+After each run, an HTML report is automatically generated at `python/reports/report.html`. Open it in any browser for a detailed view of results including tracebacks and logs per test.
+
 ## Project Structure
 
 ```
@@ -101,6 +103,8 @@ RESPOND AI AUTOMATION TEST/
 │   │   ├── config.yaml           # Your credentials (gitignored)
 │   │   ├── sheets_results_sa.json
 │   │   └── sheets_stock_sa.json
+│   ├── reports/
+│   │   └── report.html           # Auto-generated after each run (gitignored)
 │   ├── tests/
 │   │   ├── conftest.py           # Shared fixtures and assert helpers
 │   │   ├── test_isolated.py      # ~20 isolated test cases
@@ -149,8 +153,8 @@ openai:
   api_key: "YOUR_OPENAI_API_KEY"
 
 timing:
-  reply_poll_seconds: 15          # Max wait for AI reply from Respond.io
-  odoo_wait_seconds: 60           # Wait before querying Odoo after a test action
+  reply_poll_seconds: 15          # Max wait per poll attempt for AI reply
+  odoo_wait_seconds: 60           # Initial wait before querying Odoo
   message_delay_seconds: 2        # Delay between messages in sequential flows
 ```
 
@@ -158,12 +162,21 @@ timing:
 
 1. Python reads live stock sheet if the test requires a specific car
 2. Python calls Node.js service to send a WhatsApp message from your number to Alba
-3. Python polls Respond.io API every 2 seconds for up to 15 seconds waiting for the AI reply
+3. Python polls Respond.io API every 2 seconds for up to 15 seconds waiting for the AI reply — if no reply is found, it retries up to 2 more times with a 2 second gap between attempts
 4. Python asserts reply content, language, and URLs
 5. If a keyword assertion fails, OpenAI is called to semantically evaluate the reply against the expected outcome and the result is written to the AI Notes column
-6. Python waits up to 60 seconds then queries Odoo via JSON-RPC to assert side effects
+6. Python waits up to 60 seconds then queries Odoo via JSON-RPC to assert side effects — if no lead is found, it retries up to 3 times with a 10 second gap between attempts
 7. Python logs the full result row to Google Sheets
 8. Python deletes the Respond.io contact to reset for the next test
+
+## Retry Behaviour
+
+Both Respond.io polling and Odoo querying have built-in retries to handle timing variability:
+
+| Step | Poll window | Retries | Gap between retries | Max total wait |
+|------|------------|---------|---------------------|----------------|
+| Respond.io reply | 15 seconds | 2 | 2 seconds | ~46 seconds |
+| Odoo lead lookup | 60 second initial wait | 3 | 10 seconds | ~90 seconds |
 
 ## Results Sheet Behaviour
 
@@ -185,6 +198,17 @@ Each test appends one row:
 | Odoo Result | Pass/fail detail per Odoo check |
 | Overall | ✅ PASS / ❌ FAIL / ⚠️ PARTIAL |
 | AI Notes | OpenAI semantic verdict when keyword checks fail e.g. `SEMANTICALLY_PASS: reply conveys callback intent` |
+
+## HTML Report
+
+After every run, `pytest-html` generates a report at `python/reports/report.html`. Open it in any browser. It shows:
+
+- Summary of passed, failed, errors, and duration
+- Filterable results table — one row per test
+- Expandable rows with full tracebacks, logs, and stdout per test
+- Environment info (Python version, platform, pytest version)
+
+The report is overwritten on each run. Historical results are preserved in Google Sheets.
 
 ## AI Semantic Check
 
@@ -251,9 +275,10 @@ Each flow uses the same Respond.io contact throughout. Contact is deleted only a
 | WhatsApp session expired | Delete `.wwebjs_auth/` folder, restart node service, scan QR again |
 | Port 3000 already in use | Run `netstat -ano \| findstr :3000` then `taskkill /PID <pid> /F` |
 | Cannot connect to Node.js service | Ensure `node whatsapp_service.js` is running before pytest |
-| Reply poll timeout | AI took longer than 15s. Increase `timing.reply_poll_seconds` in config |
-| Odoo assertion fails but action happened | Increase `timing.odoo_wait_seconds`. Default is 60s |
+| Reply poll timeout after retries | AI consistently taking too long. Check Respond.io manually. Increase `timing.reply_poll_seconds` in config |
+| Odoo assertion fails after retries | Increase `timing.odoo_wait_seconds`. Default is 60s |
 | Contact not deleted after crash | Manually delete the contact in Respond.io for your number before re-running |
 | Odoo authentication failed | Verify `odoo.db`, `odoo.username`, and `odoo.api_key` in config.yaml |
 | Google Sheets 403 error | Share the sheet with the service account email from the SA JSON file |
 | New tab not created on full suite run | Check that the service account has Editor access on the results spreadsheet |
+| HTML report not generated | Make sure `python/reports/` folder exists — create it manually if needed |
