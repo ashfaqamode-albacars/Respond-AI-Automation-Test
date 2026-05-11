@@ -79,7 +79,7 @@ def test_book_then_cancel(your_phone, clean_contact, cfg):
 
     # Log and assert
     all_passed = all(p for _, p, _ in results)
-    respond_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results if "odoo" not in n)
+    respond_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results if "odoo" not in n and "ai_check" not in n)
     odoo_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results if "odoo" in n)
     reply_preview = (reply2.get("message", {}).get("text", "") if reply2 else "NO REPLY")[:300]
     ai_notes = " | ".join(d for n, _, d in results if "ai_check" in n)
@@ -135,7 +135,7 @@ def test_book_then_reschedule(your_phone, clean_contact, cfg):
         results.append(("ai_check_last_slot", True, f"AI: {verdict}: {explanation}"))
 
     all_passed = all(p for _, p, _ in results)
-    respond_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results)
+    respond_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results if "ai_check" not in n)
     reply_preview = (reply2.get("message", {}).get("text", "") if reply2 else "NO REPLY")[:300]
     ai_notes = " | ".join(d for n, _, d in results if "ai_check" in n)
 
@@ -189,7 +189,7 @@ def test_aftercare_flow(your_phone, clean_contact, cfg):
         results.append(("ai_check_post_form", True, f"AI: {verdict}: {explanation}"))
 
     all_passed = all(p for _, p, _ in results)
-    respond_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results)
+    respond_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results if "ai_check" not in n)
     reply_preview = (reply2.get("message", {}).get("text", "") if reply2 else "NO REPLY")[:300]
     ai_notes = " | ".join(d for n, _, d in results if "ai_check" in n)
     if all_passed:
@@ -258,7 +258,7 @@ def test_purchase_flow(your_phone, clean_contact, cfg):
         results.append(("odoo_lead", False, "No lead found in Odoo"))
 
     all_passed = all(p for _, p, _ in results)
-    respond_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results if "odoo" not in n)
+    respond_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results if "odoo" not in n and "ai_check" not in n)
     odoo_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results if "odoo" in n)
     reply_preview = (reply2.get("message", {}).get("text", "") if reply2 else "NO REPLY")[:300]
     ai_notes = " | ".join(d for n, _, d in results if "ai_check" in n)

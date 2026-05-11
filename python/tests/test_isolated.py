@@ -77,7 +77,7 @@ def run_test(
                                    f"{field}: expected '{expected_val}', got '{actual}'"))
 
     respond_all_passed = all(p for _, p, _ in respond_parts)
-    respond_summary = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in respond_parts)
+    respond_summary = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in respond_parts if "ai_check" not in n)
 
     # 5. Odoo assertions
     odoo_parts = []
