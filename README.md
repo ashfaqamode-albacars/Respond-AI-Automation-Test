@@ -138,6 +138,7 @@ sheets:
   results_sheet_id: "YOUR_RESULTS_GOOGLE_SHEET_ID"
   stock_sheet_id: "YOUR_STOCK_GOOGLE_SHEET_ID"
   stock_sheet_name: "Sheet1"
+  dev_tab_name: "Single Run Test Cases"  # Tab used when running a single test
 
 whatsapp:
   node_service_url: "http://localhost:3000"
@@ -163,6 +164,31 @@ timing:
 6. Python waits up to 60 seconds then queries Odoo via JSON-RPC to assert side effects
 7. Python logs the full result row to Google Sheets
 8. Python deletes the Respond.io contact to reset for the next test
+
+## Results Sheet Behaviour
+
+- **Single test run** — results are logged to the `Single Run Test Cases` tab (always the same tab, appended on each single run)
+- **Full suite run** — a new tab is automatically created and named by timestamp e.g. `11 May 03:48PM`, keeping each suite run's results separate
+
+## Results Sheet Format
+
+Each test appends one row:
+
+| Column | Description |
+|--------|-------------|
+| Timestamp | When the test ran |
+| Test Name | e.g. `Coming Soon — Callback offered` |
+| Message Sent | Exact message(s) sent to Alba |
+| Expected Outcome | Human-readable expected result |
+| Actual Reply | First 500 chars of AI reply |
+| Respond.io Result | Pass/fail detail per Respond.io check |
+| Odoo Result | Pass/fail detail per Odoo check |
+| Overall | ✅ PASS / ❌ FAIL / ⚠️ PARTIAL |
+| AI Notes | OpenAI semantic verdict when keyword checks fail e.g. `SEMANTICALLY_PASS: reply conveys callback intent` |
+
+## AI Semantic Check
+
+When a keyword assertion fails, instead of immediately marking the test as a hard failure, the suite calls OpenAI (`gpt-4o-mini`) with the actual reply and the expected outcome description. OpenAI returns either `SEMANTICALLY_PASS` or `SEMANTICALLY_FAIL` with a one-sentence explanation written to the **AI Notes** column. The overall result remains `❌ FAIL` — the AI check is informational only and helps distinguish genuine AI agent failures from keyword mismatches.
 
 ## Test Cases
 
@@ -204,26 +230,6 @@ Each flow uses the same Respond.io contact throughout. Contact is deleted only a
 | `test_aftercare_flow` | Report engine issue → say form already submitted | Reply 1: form link. Reply 2: aftercare WhatsApp link |
 | `test_purchase_flow` | Offer eligible car → proceed with consignment | Odoo: department = Purchasing, meeting activity |
 
-## Results Sheet Format
-
-Each test appends one row to the Google Sheet:
-
-| Column | Description |
-|--------|-------------|
-| Timestamp | When the test ran |
-| Test Name | e.g. `Coming Soon — Callback offered` |
-| Message Sent | Exact message(s) sent to Alba |
-| Expected Outcome | Human-readable expected result |
-| Actual Reply | First 500 chars of AI reply |
-| Respond.io Result | Pass/fail detail per Respond.io check |
-| Odoo Result | Pass/fail detail per Odoo check |
-| Overall | ✅ PASS / ❌ FAIL / ⚠️ PARTIAL |
-| AI Notes | OpenAI semantic verdict when keyword checks fail e.g. `SEMANTICALLY_PASS: reply conveys callback intent` |
-
-## AI Semantic Check
-
-When a keyword assertion fails, instead of immediately marking the test as a hard failure, the suite calls OpenAI (`gpt-4o-mini`) with the actual reply and the expected outcome description. OpenAI returns either `SEMANTICALLY_PASS` or `SEMANTICALLY_FAIL` with a one-sentence explanation. This is written to the **AI Notes** column. The overall result remains `❌ FAIL` — the AI check is informational only and helps distinguish genuine AI agent failures from keyword mismatches.
-
 ## Out of Scope (Manual Tests)
 
 - **Dubizzle test** — requires clicking WhatsApp on a Dubizzle listing which triggers a specific flow that cannot be automated
@@ -250,3 +256,4 @@ When a keyword assertion fails, instead of immediately marking the test as a har
 | Contact not deleted after crash | Manually delete the contact in Respond.io for your number before re-running |
 | Odoo authentication failed | Verify `odoo.db`, `odoo.username`, and `odoo.api_key` in config.yaml |
 | Google Sheets 403 error | Share the sheet with the service account email from the SA JSON file |
+| New tab not created on full suite run | Check that the service account has Editor access on the results spreadsheet |
