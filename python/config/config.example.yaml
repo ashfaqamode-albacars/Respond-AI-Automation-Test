@@ -13,6 +13,7 @@ sheets:
   results_sheet_id: "YOUR_RESULTS_GOOGLE_SHEET_ID"
   stock_sheet_id: "YOUR_STOCK_GOOGLE_SHEET_ID"
   stock_sheet_name: "Sheet1"
+  dev_tab_name: "Sheet1"
 
 whatsapp:
   node_service_url: "http://localhost:3000"

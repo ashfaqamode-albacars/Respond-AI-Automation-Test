@@ -5,6 +5,7 @@ from googleapiclient.discovery import build
 from .config import load_config
 
 _service = None
+_active_tab = None
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SA_PATH = os.path.join(os.path.dirname(__file__), "../config/sheets_results_sa.json")
@@ -32,22 +33,18 @@ def _get_service():
 
 
 def ensure_headers():
-    """Write header row if the sheet is empty."""
     cfg = load_config()
     sheet_id = cfg["sheets"]["results_sheet_id"]
-    svc = _get_service()
-
+    tab = get_active_tab()
     result = (
-        svc.spreadsheets()
-        .values()
-        .get(spreadsheetId=sheet_id, range="A1:H1")
+        _get_service().spreadsheets().values()
+        .get(spreadsheetId=sheet_id, range=f"{tab}!A1:I1")
         .execute()
     )
-
     if not result.get("values"):
-        svc.spreadsheets().values().update(
+        _get_service().spreadsheets().values().update(
             spreadsheetId=sheet_id,
-            range="A1",
+            range=f"{tab}!A1",
             valueInputOption="RAW",
             body={"values": [HEADERS]},
         ).execute()
@@ -66,6 +63,7 @@ def log_result(
     """Append one result row to the Google Sheet."""
     cfg = load_config()
     sheet_id = cfg["sheets"]["results_sheet_id"]
+    tab = get_active_tab()
 
     row = [
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -81,7 +79,7 @@ def log_result(
 
     _get_service().spreadsheets().values().append(
         spreadsheetId=sheet_id,
-        range="A1",
+        range=f"{tab}!A1",
         valueInputOption="RAW",
         insertDataOption="INSERT_ROWS",
         body={"values": [row]},
@@ -104,3 +102,19 @@ def log_partial(test_name: str, message_sent: str, expected: str, actual_reply: 
                 respond_detail: str = "", odoo_detail: str = "", ai_notes=""):
     log_result(test_name, message_sent, expected, actual_reply,
                respond_detail, odoo_detail, "⚠️ PARTIAL", ai_notes=ai_notes)
+
+
+def set_active_tab(tab_name: str):
+    global _active_tab
+    _active_tab = tab_name
+
+def get_active_tab() -> str:
+    return _active_tab or load_config()["sheets"]["dev_tab_name"]
+
+def create_tab(tab_name: str):
+    cfg = load_config()
+    sheet_id = cfg["sheets"]["results_sheet_id"]
+    _get_service().spreadsheets().batchUpdate(
+        spreadsheetId=sheet_id,
+        body={"requests": [{"addSheet": {"properties": {"title": tab_name}}}]}
+    ).execute()

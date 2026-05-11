@@ -10,7 +10,7 @@ import time
 import pytest
 from utils.config import load_config
 from utils import respond, sheets_results
-
+from datetime import datetime
 
 @pytest.fixture(autouse=True)
 def ensure_sheet_headers():
@@ -27,6 +27,18 @@ def cfg():
 def your_phone(cfg):
     return cfg["whatsapp"]["your_number"]
 
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_results_tab(request):
+    collected = len(request.session.items)
+    if collected > 1:
+        tab_name = datetime.now().strftime("%-d %b %-I:%M%p").lower()
+        # e.g. "11 may 3:48pm" — adjust strftime for Windows if needed
+        tab_name = datetime.now().strftime("%d %b %I:%M%p")  # Windows-safe
+        # e.g. "11 May 03:48PM" — you can reformat as preferred
+        sheets_results.create_tab(tab_name)
+        sheets_results.set_active_tab(tab_name)
+    # if single test, _active_tab stays None → get_active_tab() returns dev_tab_name
 
 @pytest.fixture
 def clean_contact(your_phone):
