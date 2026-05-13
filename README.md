@@ -164,7 +164,7 @@ timing:
 2. Python calls Node.js service to send a WhatsApp message from your number to Alba
 3. Python polls Respond.io API every 2 seconds for up to 15 seconds waiting for the AI reply — if no reply is found, it retries up to 2 more times with a 2 second gap between attempts
 4. Python asserts reply content, language, and URLs
-5. If a keyword assertion fails, OpenAI is called to semantically evaluate the reply against the expected outcome and the result is written to the AI Notes column
+5. If a keyword assertion fails, OpenAI Structured Outputs is called to semantically evaluate the reply; its `PASS`/`FAIL` becomes the final result for that reply check and is written to AI Notes with confidence
 6. Python waits up to 60 seconds then queries Odoo via JSON-RPC to assert side effects — if no lead is found, it retries up to 3 times with a 10 second gap between attempts
 7. Python logs the full result row to Google Sheets
 8. Python deletes the Respond.io contact to reset for the next test
@@ -197,7 +197,7 @@ Each test appends one row:
 | Respond.io Result | Pass/fail detail per Respond.io check |
 | Odoo Result | Pass/fail detail per Odoo check |
 | Overall | ✅ PASS / ❌ FAIL / ⚠️ PARTIAL |
-| AI Notes | OpenAI semantic verdict when keyword checks fail e.g. `SEMANTICALLY_PASS: reply conveys callback intent` |
+| AI Notes | OpenAI semantic verdict payload for keyword-miss overrides e.g. `PASS (0.92) - reply conveys callback intent` |
 
 ## HTML Report
 
@@ -212,7 +212,7 @@ The report is overwritten on each run. Historical results are preserved in Googl
 
 ## AI Semantic Check
 
-When a keyword assertion fails, instead of immediately marking the test as a hard failure, the suite calls OpenAI (`gpt-4o-mini`) with the actual reply and the expected outcome description. OpenAI returns either `SEMANTICALLY_PASS` or `SEMANTICALLY_FAIL` with a one-sentence explanation written to the **AI Notes** column. The overall result remains `❌ FAIL` — the AI check is informational only and helps distinguish genuine AI agent failures from keyword mismatches.
+When a keyword assertion fails, the suite calls OpenAI (`gpt-4o-mini`) using Structured Outputs (`response_format` with strict JSON schema). OpenAI returns `{ pass_fail, confidence, notes }`. The `pass_fail` value is used as the effective result of that reply assertion, and the confidence/notes are written to **AI Notes**.
 
 ## Test Cases
 

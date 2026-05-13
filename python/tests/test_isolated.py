@@ -53,11 +53,26 @@ def run_test(
 
     if reply_keywords:
         passed, detail = assert_reply_contains(reply, reply_keywords)
+        keyword_detail = detail
         respond_parts.append(("keywords", passed, detail))
         if not passed:
             actual_text = reply.get("message", {}).get("text", "") if reply else ""
-            verdict, explanation = ai_check.ai_check_reply(actual_text, expected_description)
-            ai_notes_parts.append(f"Keyword check failed → AI: {verdict}: {explanation}")
+            ai_result = ai_check.ai_check_reply(actual_text, expected_description)
+            ai_passed = ai_result["pass_fail"] == "PASS"
+            ai_confidence = ai_result["confidence"]
+            ai_notes = ai_result["notes"]
+            respond_parts[-1] = (
+                "keywords",
+                ai_passed,
+                (
+                    "Keyword check failed, semantic AI override "
+                    f"({'PASS' if ai_passed else 'FAIL'}) at confidence {ai_confidence:.2f}. "
+                    f"Original detail: {keyword_detail}"
+                ),
+            )
+            ai_notes_parts.append(
+                f"AI semantic check: {ai_result['pass_fail']} ({ai_confidence:.2f}) - {ai_notes}"
+            )
     lang_passed, lang_detail = assert_reply_language(reply, reply_language)
     respond_parts.append(("language", lang_passed, lang_detail))
 

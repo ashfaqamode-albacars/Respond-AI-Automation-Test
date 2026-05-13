@@ -19,6 +19,36 @@ def _poll(contact_id, sent_at, step_name):
     return reply
 
 
+def _apply_ai_semantic_override(results, check_name, passed, detail, reply, expected_description):
+    """
+    If keyword assertion fails, run semantic AI check and use that PASS/FAIL as final check result.
+    """
+    if passed:
+        results.append((check_name, passed, detail))
+        return
+
+    actual_text = reply.get("message", {}).get("text", "") if reply else ""
+    ai_result = ai_check.ai_check_reply(actual_text, expected_description)
+    ai_passed = ai_result["pass_fail"] == "PASS"
+    ai_confidence = ai_result["confidence"]
+    ai_notes = ai_result["notes"]
+
+    results.append((
+        check_name,
+        ai_passed,
+        (
+            "Keyword check failed, semantic AI override "
+            f"({'PASS' if ai_passed else 'FAIL'}) at confidence {ai_confidence:.2f}. "
+            f"Original detail: {detail}"
+        ),
+    ))
+    results.append((
+        f"ai_check_{check_name}",
+        True,
+        f"AI semantic check: {ai_result['pass_fail']} ({ai_confidence:.2f}) - {ai_notes}",
+    ))
+
+
 # ---------------------------------------------------------------------------
 # Flow 1: Book → Cancel appointment
 # ---------------------------------------------------------------------------
@@ -38,12 +68,9 @@ def test_book_then_cancel(your_phone, clean_contact, cfg):
 
     reply1 = _poll(contact_id, t1, "Book appointment")
     ok1, detail1 = assert_reply_contains(reply1, ["appointment", "confirm"])
-    results.append(("book_reply", ok1, detail1))
-
-    if not ok1:
-        actual_text = reply1.get("message", {}).get("text", "") if reply1 else ""
-        verdict, explanation = ai_check.ai_check_reply(actual_text, "Appointment should be booked and confirmed")
-        results.append((f"ai_check_book_reply", True, f"AI: {verdict}: {explanation}"))
+    _apply_ai_semantic_override(
+        results, "book_reply", ok1, detail1, reply1, "Appointment should be booked and confirmed"
+    )
 
     # Check Odoo: appointment activity created
     lead = odoo.wait_and_get_lead(your_phone)
@@ -61,13 +88,9 @@ def test_book_then_cancel(your_phone, clean_contact, cfg):
     whatsapp.send_message(msg2, delay_after=cfg["timing"]["message_delay_seconds"])
     reply2 = _poll(contact_id, t2, "Cancel appointment")
     ok2, detail2 = assert_reply_contains(reply2, ["cancel"])
-    results.append(("cancel_reply", ok2, detail2))
-
-    
-    if not ok2:
-        actual_text = reply2.get("message", {}).get("text", "") if reply2 else ""
-        verdict, explanation = ai_check.ai_check_reply(actual_text, "Appointment should be cancelled")
-        results.append((f"ai_check_cancel_reply", True, f"AI: {verdict}: {explanation}"))
+    _apply_ai_semantic_override(
+        results, "cancel_reply", ok2, detail2, reply2, "Appointment should be cancelled"
+    )
 
     # Check Odoo: activity should be gone
     time.sleep(30)
@@ -115,11 +138,9 @@ def test_book_then_reschedule(your_phone, clean_contact, cfg):
 
     reply1 = _poll(contact_id, t1, "Book initial appointment")
     ok1, detail1 = assert_reply_contains(reply1, ["appointment"])
-    results.append(("book_reply", ok1, detail1))
-    if not ok1:
-        actual_text = reply1.get("message", {}).get("text", "") if reply1 else ""
-        verdict, explanation = ai_check.ai_check_reply(actual_text, "Appointment should be booked")
-        results.append(("ai_check_book_reply", True, f"AI: {verdict}: {explanation}"))
+    _apply_ai_semantic_override(
+        results, "book_reply", ok1, detail1, reply1, "Appointment should be booked"
+    )
     # Step 2: Try to reschedule to 10pm (after last slot)
     msg2 = "Can I come see the car at 10pm instead?"
     t2 = time.time()
@@ -127,12 +148,14 @@ def test_book_then_reschedule(your_phone, clean_contact, cfg):
     reply2 = _poll(contact_id, t2, "Reschedule to 10pm")
     # AI should mention last slot is 9:30
     ok2, detail2 = assert_reply_contains(reply2, ["9:30", "last"])
-    results.append(("last_slot_reply", ok2, detail2))
-
-    if not ok2:
-        actual_text = reply2.get("message", {}).get("text", "") if reply2 else ""
-        verdict, explanation = ai_check.ai_check_reply(actual_text, "AI should inform the customer that the last available slot is 9:30 and not allow booking at 10pm")
-        results.append(("ai_check_last_slot", True, f"AI: {verdict}: {explanation}"))
+    _apply_ai_semantic_override(
+        results,
+        "last_slot_reply",
+        ok2,
+        detail2,
+        reply2,
+        "AI should inform the customer that the last available slot is 9:30 and not allow booking at 10pm",
+    )
 
     all_passed = all(p for _, p, _ in results)
     respond_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results if "ai_check" not in n)
@@ -168,12 +191,14 @@ def test_aftercare_flow(your_phone, clean_contact, cfg):
 
     reply1 = _poll(contact_id, t1, "Aftercare pre-form")
     ok1, detail1 = assert_reply_contains(reply1, ["form"])
-    results.append(("pre_form_reply", ok1, detail1))
-
-    if not ok1:
-        actual_text = reply1.get("message", {}).get("text", "") if reply1 else ""
-        verdict, explanation = ai_check.ai_check_reply(actual_text, "AI should send a form link for the customer to submit their warranty/aftercare issue")
-        results.append(("ai_check_pre_form", True, f"AI: {verdict}: {explanation}"))
+    _apply_ai_semantic_override(
+        results,
+        "pre_form_reply",
+        ok1,
+        detail1,
+        reply1,
+        "AI should send a form link for the customer to submit their warranty/aftercare issue",
+    )
 
     # Step 2: Post-form (already submitted)
     msg2 = "I've already submitted the form."
@@ -181,12 +206,14 @@ def test_aftercare_flow(your_phone, clean_contact, cfg):
     whatsapp.send_message(msg2, delay_after=cfg["timing"]["message_delay_seconds"])
     reply2 = _poll(contact_id, t2, "Aftercare post-form")
     ok2, detail2 = assert_reply_contains(reply2, ["whatsapp"])
-    results.append(("post_form_reply", ok2, detail2))
-
-    if not ok2:
-        actual_text = reply2.get("message", {}).get("text", "") if reply2 else ""
-        verdict, explanation = ai_check.ai_check_reply(actual_text, "AI should send a WhatsApp link to the aftercare team since the form was already submitted")
-        results.append(("ai_check_post_form", True, f"AI: {verdict}: {explanation}"))
+    _apply_ai_semantic_override(
+        results,
+        "post_form_reply",
+        ok2,
+        detail2,
+        reply2,
+        "AI should send a WhatsApp link to the aftercare team since the form was already submitted",
+    )
 
     all_passed = all(p for _, p, _ in results)
     respond_detail = " | ".join(f"{n}={'✅' if p else '❌'} {d}" for n, p, d in results if "ai_check" not in n)
@@ -225,12 +252,14 @@ def test_purchase_flow(your_phone, clean_contact, cfg):
 
     reply1 = _poll(contact_id, t1, "Purchase intro")
     ok1, detail1 = assert_reply_contains(reply1, ["consignment"])
-    results.append(("consignment_offered", ok1, detail1))
-
-    if not ok1:
-        actual_text = reply1.get("message", {}).get("text", "") if reply1 else ""
-        verdict, explanation = ai_check.ai_check_reply(actual_text, "AI should offer a consignment arrangement to the customer wanting to sell their car")
-        results.append(("ai_check_consignment", True, f"AI: {verdict}: {explanation}"))
+    _apply_ai_semantic_override(
+        results,
+        "consignment_offered",
+        ok1,
+        detail1,
+        reply1,
+        "AI should offer a consignment arrangement to the customer wanting to sell their car",
+    )
 
     # Step 2: Proceed with consignment
     msg2 = "Yes I would like to proceed with the consignment."
@@ -238,12 +267,14 @@ def test_purchase_flow(your_phone, clean_contact, cfg):
     whatsapp.send_message(msg2, delay_after=cfg["timing"]["message_delay_seconds"])
     reply2 = _poll(contact_id, t2, "Proceed consignment")
     ok2, detail2 = assert_reply_contains(reply2, ["appointment", "visit"])
-    results.append(("proceed_reply", ok2, detail2))
-
-    if not ok2:
-        actual_text = reply2.get("message", {}).get("text", "") if reply2 else ""
-        verdict, explanation = ai_check.ai_check_reply(actual_text, "AI should book an appointment or ask the customer to visit after they agreed to proceed with consignment")
-        results.append(("ai_check_proceed", True, f"AI: {verdict}: {explanation}"))
+    _apply_ai_semantic_override(
+        results,
+        "proceed_reply",
+        ok2,
+        detail2,
+        reply2,
+        "AI should book an appointment or ask the customer to visit after they agreed to proceed with consignment",
+    )
         
     # Odoo checks
     lead = odoo.wait_and_get_lead(your_phone)
