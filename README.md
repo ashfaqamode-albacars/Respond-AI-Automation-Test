@@ -1,19 +1,29 @@
-# Alba AI Agent Test Suite (Version 1.0)
+# Alba AI Agent Test Suite (Version 2)
 
-Automated QA tool for testing Alba's Respond.io AI agent. Simulates customer WhatsApp messages and asserts AI responses, Respond.io lifecycle changes, and Odoo side effects.
+Config-driven automated QA tool for testing Alba's Respond.io AI agent. Define tests in YAML, run with pytest. No Python required to add new test cases.
 
 ## Architecture
 
 ```
 pytest (CLI trigger)
-    └── Python orchestrator
-            ├── Node.js WhatsApp service (whatsapp-web.js) → sends messages as customer
-            ├── Respond.io API                             → reads replies, lifecycle, fields
-            ├── Odoo JSON-RPC                              → asserts leads, activities
-            ├── OpenAI API                                 → semantic fallback check on failed assertions
-            ├── Google Sheets (stock)                      → reads live cars for test data
-            └── Google Sheets (results)                    → logs pass/fail per test
+    └── test_suite.py (discovers tests from YAML)
+            └── test_runner.py (executes each test)
+                    ├── message_generator.py          → generates customer messages via OpenAI
+                    ├── Node.js WhatsApp service       → sends messages via whatsapp-web.js
+                    ├── Respond.io API                 → reads replies, lifecycle, fields
+                    ├── ai_check.py                    → semantic fallback when keywords fail
+                    ├── Odoo JSON-RPC                  → asserts leads, activities
+                    ├── Google Sheets (stock)           → reads live cars for test data
+                    └── Google Sheets (results)         → logs pass/fail per test
 ```
+
+## What Changed in v2
+
+- **Tests are defined in YAML** — no more writing Python to add a test case
+- **Customer messages can be AI-generated** — provide a prompt and OpenAI writes a natural WhatsApp message, or provide a fixed message
+- **Single test runner** — `test_suite.py` replaces `test_isolated.py` and `test_flows.py`
+- **Data sources are declarative** — specify `data_source: "coming_soon_car"` in YAML instead of calling functions
+- **Everything else is the same** — same Respond.io, Odoo, Sheets, WhatsApp infrastructure
 
 ## Prerequisites
 
@@ -57,7 +67,7 @@ cd node
 node whatsapp_service.js
 ```
 
-Scan the QR code that appears with your WhatsApp. Session is saved to `.wwebjs_auth/` and restored automatically on subsequent runs.
+Scan the QR code with your WhatsApp. Session is saved to `.wwebjs_auth/` and restored automatically.
 
 ## Running Tests
 
@@ -70,59 +80,157 @@ node whatsapp_service.js
 
 Wait for: `WhatsApp client ready. Service is accepting requests on port 3000`
 
-Then in a second terminal run tests from the project root:
+Then in a second terminal from the project root:
 
 ```bash
 # Full suite
-python -m pytest python/tests/ -v
+python -m pytest python/tests/test_suite.py -v
 
-# Isolated tests only
-python -m pytest python/tests/test_isolated.py -v
+# Only isolated tests
+python -m pytest python/tests/test_suite.py::test_isolated -v
 
-# Sequential flows only
-python -m pytest python/tests/test_flows.py -v
+# Only flow tests
+python -m pytest python/tests/test_suite.py::test_flow -v
 
-# Single test
-python -m pytest python/tests/test_isolated.py::test_coming_soon -v
-python -m pytest python/tests/test_flows.py::test_book_then_cancel -v
+# Single test by name
+python -m pytest python/tests/test_suite.py::test_isolated[Coming\ Soon\ —\ Callback\ offered] -v
 ```
 
-After each run, an HTML report is automatically generated at `python/reports/report.html`. Open it in any browser for a detailed view of results including tracebacks and logs per test.
+After each run, an HTML report is generated at `python/reports/report.html`.
 
 ## Project Structure
 
 ```
 RESPOND AI AUTOMATION TEST/
 ├── node/
-│   ├── whatsapp_service.js       # Express server wrapping whatsapp-web.js
+│   ├── whatsapp_service.js          # Express server wrapping whatsapp-web.js
 │   ├── package.json
 │   └── package-lock.json
 ├── python/
 │   ├── config/
-│   │   ├── config.example.yaml   # Template — copy to config.yaml
-│   │   ├── config.yaml           # Your credentials (gitignored)
+│   │   ├── config.example.yaml      # Template — copy to config.yaml
+│   │   ├── config.yaml              # Your credentials (gitignored)
+│   │   ├── test_cases.yaml          # ★ All test definitions live here
+│   │   ├── test_cases_examples.yaml # Reference showing all available options
 │   │   ├── sheets_results_sa.json
 │   │   └── sheets_stock_sa.json
 │   ├── reports/
-│   │   └── report.html           # Auto-generated after each run (gitignored)
+│   │   └── report.html              # Auto-generated after each run (gitignored)
 │   ├── tests/
-│   │   ├── conftest.py           # Shared fixtures and assert helpers
-│   │   ├── test_isolated.py      # ~20 isolated test cases
-│   │   └── test_flows.py         # 4 sequential flow tests
+│   │   ├── conftest.py              # Shared fixtures and helpers
+│   │   └── test_suite.py            # ★ Discovers and runs tests from YAML
 │   ├── utils/
-│   │   ├── ai_check.py           # OpenAI semantic fallback checker
-│   │   ├── config.py             # Config loader
-│   │   ├── odoo.py               # Odoo JSON-RPC wrapper
-│   │   ├── respond.py            # Respond.io API wrapper
-│   │   ├── sheets_results.py     # Results sheet logger
-│   │   ├── sheets_stock.py       # Live stock sheet reader
-│   │   └── whatsapp.py           # Calls Node.js service to send messages
-│   ├── debug_odoo.py             # Standalone Odoo connection tester
-│   ├── debug_respond.py          # Standalone Respond.io connection tester
+│   │   ├── ai_check.py              # OpenAI semantic fallback checker
+│   │   ├── config.py                # Config loader
+│   │   ├── message_generator.py     # ★ Generates customer messages via OpenAI
+│   │   ├── odoo.py                  # Odoo JSON-RPC wrapper
+│   │   ├── respond.py               # Respond.io API wrapper
+│   │   ├── sheets_results.py        # Results sheet logger
+│   │   ├── sheets_stock.py          # Live stock sheet reader
+│   │   ├── test_runner.py           # ★ Config-driven test execution engine
+│   │   └── whatsapp.py              # Calls Node.js service to send messages
+│   ├── debug_odoo.py                # Standalone Odoo connection tester
+│   ├── debug_respond.py             # Standalone Respond.io connection tester
 │   └── pytest.ini
 ├── requirements.txt
 └── README.md
 ```
+
+Files marked with ★ are new or changed in v2.
+
+## Adding a New Test
+
+Open `python/config/test_cases.yaml` and add a YAML block. No Python needed.
+
+### Simplest possible test (3 lines):
+
+```yaml
+- name: "Video Request"
+  fixed_message: "Can I have a video of the car?"
+  expected: "AI says no videos available"
+```
+
+### Test with AI-generated message from stock data:
+
+```yaml
+- name: "Coming Soon Car"
+  prompt: "Ask about this coming soon car and whether it's available"
+  expected: "Reply should mention a callback"
+  keywords: ["callback", "call"]
+  data_source: "coming_soon_car"
+```
+
+### Test with Odoo assertions:
+
+```yaml
+- name: "Callback Requested"
+  fixed_message: "Can you call me today at 3pm?"
+  expected: "AI confirms callback, Odoo creates call activity"
+  keywords: ["call"]
+  odoo_checks:
+    - "x_studio_stage_id: New"
+  odoo_activity: "Phone Call"
+```
+
+### Multi-step flow:
+
+```yaml
+flows:
+  - name: "Book then Cancel"
+    data_source: "available_car"
+    steps:
+      - prompt: "Book an appointment to see this car tomorrow at 2pm"
+        expected: "Appointment confirmed"
+        keywords: ["appointment"]
+      - fixed_message: "Cancel my appointment"
+        expected: "Appointment cancelled"
+        keywords: ["cancel"]
+    odoo_checks:
+      - "meeting_removed: true"
+```
+
+See `test_cases_examples.yaml` for the full reference of every available field and option.
+
+## Test Case YAML Reference
+
+### Fields for isolated tests
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Display name for reporting |
+| `fixed_message` | One of these | Exact message to send |
+| `prompt` | One of these | Instruction for AI to generate a message |
+| `expected` | Yes | What the reply should convey (used for AI semantic check) |
+| `keywords` | No | Fast keyword check — list of strings the reply should contain |
+| `reply_language` | No | `"english"` (default) or `"arabic"` |
+| `reply_url` | No | URL fragment that should appear in the reply |
+| `data_source` | No | Stock sheet function to call for car data |
+| `data_params` | No | Parameters for the data source |
+| `odoo_checks` | No | List of `"field: expected_value"` strings |
+| `odoo_activity` | No | Activity type name to check for (e.g. `"Meeting"`) |
+| `no_odoo_activity` | No | If `true`, assert no activities exist |
+
+### Fields for flow tests
+
+Same as isolated, plus:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `steps` | Yes | List of step objects (each has `fixed_message`/`prompt`, `expected`, `keywords`) |
+| `data_source` | No | Shared across all steps in the flow |
+| `odoo_checks` | No | Checked after all steps complete |
+| `odoo_activity` | No | Checked after all steps complete |
+
+### Available data sources
+
+| Value | Returns |
+|-------|---------|
+| `coming_soon_car` | First car with status CS from stock sheet |
+| `available_car` | First car with status AV from stock sheet |
+| `eligible_purchase_car` | Hardcoded eligible German car (2022 BMW 530i) |
+| `disqualified_purchase_car` | Hardcoded pre-2015 car (2014 Toyota Corolla) |
+| `price_range` | First AV car in price range (requires `data_params: {min_price, max_price}`) |
+| `monthly_budget` | First AV car within monthly budget (requires `data_params: {max_monthly}`) |
 
 ## Configuration Reference
 
@@ -142,143 +250,93 @@ sheets:
   results_sheet_id: "YOUR_RESULTS_GOOGLE_SHEET_ID"
   stock_sheet_id: "YOUR_STOCK_GOOGLE_SHEET_ID"
   stock_sheet_name: "Sheet1"
-  dev_tab_name: "Single Run Test Cases"  # Tab used when running a single test
+  dev_tab_name: "Single Run Test Cases"
 
 whatsapp:
   node_service_url: "http://localhost:3000"
-  your_number: "+971XXXXXXXXX"    # Your number — simulates the customer
-  alba_number: "+971XXXXXXXXX"    # Alba's WhatsApp number
+  your_number: "+971XXXXXXXXX"
+  alba_number: "+971XXXXXXXXX"
 
 openai:
   api_key: "YOUR_OPENAI_API_KEY"
 
 timing:
-  reply_poll_seconds: 15          # Max wait per poll attempt for AI reply
-  odoo_wait_seconds: 60           # Initial wait before querying Odoo
-  message_delay_seconds: 2        # Delay between messages in sequential flows
+  reply_poll_seconds: 15
+  odoo_wait_seconds: 60
+  message_delay_seconds: 2
 ```
 
 ## How Each Test Works
 
-1. Python reads live stock sheet if the test requires a specific car
-2. Python calls Node.js service to send a WhatsApp message from your number to Alba
-3. Python polls Respond.io API every 2 seconds for up to 15 seconds waiting for the AI reply — if no reply is found, it retries up to 2 more times with a 2 second gap between attempts
-4. Python asserts reply content, language, and URLs
-5. If a keyword assertion fails, OpenAI Structured Outputs is called to semantically evaluate the reply; its `PASS`/`FAIL` becomes the final result for that reply check and is written to AI Notes with confidence
-6. Python waits up to 60 seconds then queries Odoo via JSON-RPC to assert side effects — if no lead is found, it retries up to 3 times with a 10 second gap between attempts
-7. Python logs the full result row to Google Sheets
-8. Python deletes the Respond.io contact to reset for the next test
+1. Test runner reads the test definition from `test_cases.yaml`
+2. If `data_source` is specified, car data is fetched from the live stock sheet
+3. If `prompt` is provided (no `fixed_message`), OpenAI generates a natural customer message using the prompt and car data as context
+4. Message is sent to Alba via WhatsApp (Node.js service)
+5. Respond.io API is polled for the AI reply (up to 15 seconds per attempt, 2 retries)
+6. Keywords are checked first (fast pass). If keywords fail, OpenAI evaluates the reply semantically against the `expected` description
+7. Language check and URL check run if specified
+8. After a 60 second wait, Odoo is queried for lead and activity assertions (3 retries with 10 second gaps)
+9. Result is logged to Google Sheets
+10. Contact is deleted from Respond.io to reset for the next test
+
+## Results Sheet Behaviour
+
+- **Single test run** — results logged to the `Single Run Test Cases` tab
+- **Full suite run** — a new tab is created named by timestamp e.g. `11 May 03:48PM`
+
+## Results Sheet Format
+
+| Column | Description |
+|--------|-------------|
+| Timestamp | When the test ran |
+| Test Name | From the `name` field in YAML |
+| Message Sent | Exact message (fixed or AI-generated) |
+| Expected Outcome | From the `expected` field in YAML |
+| Actual Reply | First 500 chars of AI reply |
+| Respond.io Result | Pass/fail detail per check |
+| Odoo Result | Pass/fail detail per check |
+| Overall | ✅ PASS / ❌ FAIL |
+| AI Notes | Semantic verdict when keyword checks fail |
+
+## HTML Report
+
+After every run, `pytest-html` generates `python/reports/report.html` with a summary, filterable results table, and expandable tracebacks per test. Overwritten each run — historical results are preserved in Google Sheets.
+
+## AI Semantic Check
+
+When a keyword assertion fails, OpenAI (`gpt-4o-mini`) evaluates whether the reply semantically satisfies the `expected` description. Returns `SEMANTICALLY_PASS` or `SEMANTICALLY_FAIL` with a one-sentence explanation. Written to the **AI Notes** column. The overall result remains `❌ FAIL` — the AI check is informational only.
+
+## AI Message Generation
+
+When a test uses `prompt` instead of `fixed_message`, OpenAI generates a natural customer WhatsApp message. The prompt and any car data from the stock sheet are passed as context. This means each test run may send a slightly different message, making the tests more realistic. The exact message sent is always logged to the sheet for traceability.
 
 ## Retry Behaviour
-
-Both Respond.io polling and Odoo querying have built-in retries to handle timing variability:
 
 | Step | Poll window | Retries | Gap between retries | Max total wait |
 |------|------------|---------|---------------------|----------------|
 | Respond.io reply | 15 seconds | 2 | 2 seconds | ~46 seconds |
 | Odoo lead lookup | 60 second initial wait | 3 | 10 seconds | ~90 seconds |
 
-## Results Sheet Behaviour
-
-- **Single test run** — results are logged to the `Single Run Test Cases` tab (always the same tab, appended on each single run)
-- **Full suite run** — a new tab is automatically created and named by timestamp e.g. `11 May 03:48PM`, keeping each suite run's results separate
-
-## Results Sheet Format
-
-Each test appends one row:
-
-| Column | Description |
-|--------|-------------|
-| Timestamp | When the test ran |
-| Test Name | e.g. `Coming Soon — Callback offered` |
-| Message Sent | Exact message(s) sent to Alba |
-| Expected Outcome | Human-readable expected result |
-| Actual Reply | First 500 chars of AI reply |
-| Respond.io Result | Pass/fail detail per Respond.io check |
-| Odoo Result | Pass/fail detail per Odoo check |
-| Overall | ✅ PASS / ❌ FAIL / ⚠️ PARTIAL |
-| AI Notes | OpenAI semantic verdict payload for keyword-miss overrides e.g. `PASS (0.92) - reply conveys callback intent` |
-
-## HTML Report
-
-After every run, `pytest-html` generates a report at `python/reports/report.html`. Open it in any browser. It shows:
-
-- Summary of passed, failed, errors, and duration
-- Filterable results table — one row per test
-- Expandable rows with full tracebacks, logs, and stdout per test
-- Environment info (Python version, platform, pytest version)
-
-The report is overwritten on each run. Historical results are preserved in Google Sheets.
-
-## AI Semantic Check
-
-When a keyword assertion fails, the suite calls OpenAI (`gpt-4o-mini`) using Structured Outputs (`response_format` with strict JSON schema). OpenAI returns `{ pass_fail, confidence, notes }`. The `pass_fail` value is used as the effective result of that reply assertion, and the confidence/notes are written to **AI Notes**.
-
-## Test Cases
-
-### Isolated Tests (`tests/test_isolated.py`)
-
-Each test runs with a fresh Respond.io contact which is deleted after the test completes.
-
-| Test | Message Scenario | Key Assertions |
-|------|-----------------|----------------|
-| `test_coming_soon` | Ask about a CS car from stock sheet | Reply: callback offered. Odoo: no activity |
-| `test_aftercare_pre_form` | Warranty/engine issue message | Reply: form link sent |
-| `test_aftercare_post_form` | Already submitted the form | Reply: aftercare WhatsApp link sent |
-| `test_not_interested` | Customer leaving UAE | Respond.io: lifecycle = Not Interested |
-| `test_job_seeker` | Ask about sales agent position | Respond.io: disqualified, not AI assigned |
-| `test_purchase_eligible` | Sell 2022 German GCC car under 40k km | Reply: consignment offered. Odoo: department, activity |
-| `test_purchase_leaving_country` | Same + leaving country soon | Odoo: CRM lead created |
-| `test_purchase_disqualified` | Sell pre-2015 car | Reply: car not accepted. Odoo: disqualified |
-| `test_banking_rep` | Ask about bank/lease reps on site | Reply mentions dedicated finance team |
-| `test_callback_requested` | Request a call at specific time | Reply: affirmative. Odoo: call activity |
-| `test_appointment_no_time` | Tomorrow but not sure what time | Reply: callback offered to confirm time |
-| `test_appointment_far_date` | Book appointment more than 1 week away | Odoo: meeting activity. Reply: callback offered |
-| `test_video_request` | Ask for a video of the car | Reply: no videos available |
-| `test_price_buffer` | Budget 100k-120k AED | Reply: cars shown from 80k-144k range |
-| `test_monthly_budget` | Max 2,000 AED/month for Audi Q5 | Reply: options within monthly budget |
-| `test_on_my_way` | I'm on my way | Reply: address + conversation closed |
-| `test_arabic_text` | Message sent in Arabic | Reply in Arabic + Arabic URL |
-| `test_arabic_name` | Arabic WhatsApp contact name | Reply in Arabic |
-| `test_ai_fallback` | Trigger fallback scenario | Respond.io: lifecycle = Help Emma |
-| `test_uae_number_request` | Appointment request, non-UAE context | Reply: asks for UAE number |
-
-### Sequential Flow Tests (`tests/test_flows.py`)
-
-Each flow uses the same Respond.io contact throughout. Contact is deleted only after the full flow completes.
-
-| Flow | Steps | Key Assertions |
-|------|-------|----------------|
-| `test_book_then_cancel` | Book appointment → cancel it | Odoo: meeting created then removed |
-| `test_book_then_reschedule` | Book appointment → request 10pm slot | Reply: last slot is 9:30 |
-| `test_aftercare_flow` | Report engine issue → say form already submitted | Reply 1: form link. Reply 2: aftercare WhatsApp link |
-| `test_purchase_flow` | Offer eligible car → proceed with consignment | Odoo: department = Purchasing, meeting activity |
-
 ## Out of Scope (Manual Tests)
 
-- **Dubizzle test** — requires clicking WhatsApp on a Dubizzle listing which triggers a specific flow that cannot be automated
-- **Don't double message on assign** — requires a specific pre-existing contact state that is complex to set up programmatically
-- **Instagram / Facebook channels** — WhatsApp only is tested
-
-## Adding New Tests
-
-1. Add a new function to `tests/test_isolated.py` or `tests/test_flows.py`
-2. Use `run_test()` for isolated tests or follow the flow pattern in `test_flows.py`
-3. Define `reply_keywords`, `odoo_checks`, and `odoo_activity_type` as needed
-4. Run in isolation first: `python -m pytest python/tests/test_isolated.py::your_test -v`
+- **Dubizzle test** — requires browser interaction with Dubizzle listing
+- **Don't double message on assign** — requires specific pre-existing contact state
+- **Instagram / Facebook channels** — WhatsApp only
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
 | `pytest` not recognised | Use `python -m pytest` instead |
-| WhatsApp session expired | Delete `.wwebjs_auth/` folder, restart node service, scan QR again |
-| Port 3000 already in use | Run `netstat -ano \| findstr :3000` then `taskkill /PID <pid> /F` |
-| Cannot connect to Node.js service | Ensure `node whatsapp_service.js` is running before pytest |
-| Reply poll timeout after retries | AI consistently taking too long. Check Respond.io manually. Increase `timing.reply_poll_seconds` in config |
-| Odoo assertion fails after retries | Increase `timing.odoo_wait_seconds`. Default is 60s |
-| Contact not deleted after crash | Manually delete the contact in Respond.io for your number before re-running |
-| Odoo authentication failed | Verify `odoo.db`, `odoo.username`, and `odoo.api_key` in config.yaml |
-| Google Sheets 403 error | Share the sheet with the service account email from the SA JSON file |
-| New tab not created on full suite run | Check that the service account has Editor access on the results spreadsheet |
-| HTML report not generated | Make sure `python/reports/` folder exists — create it manually if needed |
+| WhatsApp session expired | Delete `.wwebjs_auth/`, restart node service, scan QR |
+| Port 3000 already in use | `netstat -ano \| findstr :3000` then `taskkill /PID <pid> /F` |
+| Cannot connect to Node.js service | Ensure `node whatsapp_service.js` is running first |
+| Reply poll timeout after retries | Increase `timing.reply_poll_seconds` in config |
+| Odoo assertion fails after retries | Increase `timing.odoo_wait_seconds` |
+| Contact not deleted after crash | Manually delete in Respond.io before re-running |
+| Odoo authentication failed | Check `odoo.db`, `odoo.username`, `odoo.api_key` |
+| Google Sheets 403 | Share the sheet with the service account email |
+| New tab not created | Service account needs Editor access on results sheet |
+| HTML report not generated | Create `python/reports/` folder manually |
+| AI message generation fails | Check `openai.api_key` in config |
+| Test not found by name | Escape spaces in test name: `Coming\ Soon\ —\ Callback\ offered` |
