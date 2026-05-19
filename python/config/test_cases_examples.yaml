@@ -1,0 +1,154 @@
+# =============================================================================
+# test_cases_examples.yaml — Reference for all available test options
+# =============================================================================
+#
+# Copy any of these into test_cases.yaml and modify as needed.
+#
+
+isolated:
+
+  # --- Simplest test: fixed message, keyword check only ---
+  - name: "Video Request"
+    fixed_message: "Can I have a video of the car?"
+    expected: "AI says no videos available"
+    keywords: ["video"]
+
+  # --- AI-generated message using stock sheet data ---
+  - name: "Coming Soon Car"
+    prompt: "Ask about this coming soon car and whether it's available"
+    expected: "Reply should mention a callback and that the car is not available yet"
+    keywords: ["callback", "call"]
+    data_source: "coming_soon_car"
+
+  # --- Fixed message with Odoo field check ---
+  - name: "Not Interested"
+    fixed_message: "I've left the UAE and will not be proceeding."
+    expected: "Lifecycle should change to Not Interested"
+    keywords: ["understand"]
+    odoo_checks:
+      - "x_studio_stage_id: Not Interested"
+
+  # --- Fixed message with Odoo activity check ---
+  - name: "Callback Requested"
+    fixed_message: "Can you call me today at 3pm?"
+    expected: "AI confirms the callback, Odoo creates a call activity"
+    keywords: ["call", "3"]
+    odoo_activity: "Phone Call"
+
+  # --- Assert NO Odoo activity exists ---
+  - name: "Coming Soon — No Activity"
+    prompt: "Ask about this car"
+    expected: "Callback offered but no Odoo activity created"
+    keywords: ["callback"]
+    data_source: "coming_soon_car"
+    no_odoo_activity: true
+
+  # --- Arabic language check + URL fragment ---
+  - name: "Arabic Reply"
+    fixed_message: "مرحبا، أنا مهتم بشراء سيارة"
+    expected: "Reply should be in Arabic with an Arabic URL"
+    reply_language: "arabic"
+    reply_url: "albacars.ae/ar"
+
+  # --- AI-generated message with data + multiple Odoo checks ---
+  - name: "Purchase Eligible"
+    prompt: "Tell them you want to sell this car, mention GCC spec and mileage"
+    expected: "AI offers consignment, department set to Purchasing"
+    keywords: ["consignment"]
+    data_source: "eligible_purchase_car"
+    odoo_checks:
+      - "x_studio_department: Purchasing"
+    odoo_activity: "Meeting"
+
+  # --- No keywords, pure AI evaluation ---
+  - name: "General Inquiry"
+    fixed_message: "What cars do you have under 50k?"
+    expected: "AI should list some available cars under 50,000 AED"
+
+  # --- Data source with custom params ---
+  - name: "Budget Range"
+    fixed_message: "My budget is 80k to 100k AED"
+    expected: "AI shows cars in that price range"
+    keywords: ["aed"]
+    data_source: "price_range"
+    data_params:
+      min_price: 64000
+      max_price: 120000
+
+
+flows:
+
+  # --- Simple two-step flow ---
+  - name: "Book then Cancel"
+    data_source: "available_car"
+    steps:
+      - prompt: "Book an appointment to see this car tomorrow at 2pm"
+        expected: "Appointment confirmed"
+        keywords: ["appointment", "confirm"]
+      - fixed_message: "Cancel my appointment please"
+        expected: "Appointment cancelled"
+        keywords: ["cancel"]
+    odoo_checks:
+      - "meeting_removed: true"
+
+  # --- Flow with no data source ---
+  - name: "Aftercare Full Flow"
+    steps:
+      - fixed_message: "I have a warranty issue with my car"
+        expected: "AI sends a form link"
+        keywords: ["form"]
+      - fixed_message: "I already submitted the form"
+        expected: "AI sends aftercare WhatsApp link"
+        keywords: ["whatsapp"]
+
+  # --- Flow with Odoo checks after all steps ---
+  - name: "Purchase Full Flow"
+    data_source: "eligible_purchase_car"
+    steps:
+      - prompt: "Say you want to sell this car with GCC spec and mileage"
+        expected: "AI offers consignment"
+        keywords: ["consignment"]
+      - fixed_message: "Yes I want to proceed"
+        expected: "AI books an appointment or asks to visit"
+        keywords: ["appointment", "visit"]
+    odoo_checks:
+      - "x_studio_department: Purchasing"
+    odoo_activity: "Meeting"
+
+
+# =============================================================================
+# QUICK REFERENCE — All available fields
+# =============================================================================
+#
+# isolated:
+#   - name: "string"                    # REQUIRED — display name
+#     fixed_message: "string"           # Send this exact message
+#     prompt: "string"                  # OR let AI generate a message from this
+#     expected: "string"                # REQUIRED — what the reply should convey
+#     keywords: ["word1", "word2"]      # Optional — fast keyword check
+#     reply_language: "english|arabic"  # Optional — default english
+#     reply_url: "url fragment"         # Optional — check URL in reply
+#     data_source: "source_name"        # Optional — fetch car data from sheet
+#     data_params:                      # Optional — params for data_source
+#       key: value
+#     odoo_checks:                      # Optional — list of "field: value"
+#       - "field: value"
+#     odoo_activity: "type_name"        # Optional — check activity exists
+#     no_odoo_activity: true            # Optional — assert NO activities
+#
+# flows:
+#   - name: "string"                    # REQUIRED
+#     data_source: "source_name"        # Optional — shared across steps
+#     steps:                            # REQUIRED — list of steps
+#       - fixed_message: "string"       # Same fields as isolated
+#         prompt: "string"
+#         expected: "string"            # REQUIRED per step
+#         keywords: [...]
+#         reply_language: "string"
+#     odoo_checks:                      # Optional — checked after all steps
+#       - "field: value"
+#     odoo_activity: "type_name"        # Optional — checked after all steps
+#
+# Available data_source values:
+#   coming_soon_car, available_car, eligible_purchase_car,
+#   disqualified_purchase_car, price_range, monthly_budget

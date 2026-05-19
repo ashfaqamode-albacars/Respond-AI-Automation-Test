@@ -29,6 +29,7 @@ node/.wwebjs_cache/
 python/config/config.yaml
 python/config/sheets_results_sa.json
 python/config/sheets_stock_sa.json
+python/config/test_cases.yaml
 .env
 *.env
 
