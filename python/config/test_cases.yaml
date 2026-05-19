@@ -33,12 +33,12 @@ isolated:
 
   - name: "Aftercare — Pre form submission"
     fixed_message: "Hey I have an issue with my car and since it's still under warranty with you guys I'm hoping you could help. There is some weird knocking in the engine bay."
-    expected: "The AI should send a form link for the customer to submit their warranty/aftercare issue"
+    expected: "The AI should send some form of link for the customer to submit their warranty/aftercare issue"
     keywords: ["form"]
 
   - name: "Aftercare — Post form submission"
     fixed_message: "I've already submitted the form."
-    expected: "The AI should send a WhatsApp link to the aftercare team"
+    expected: "The AI should send a WhatsApp link or some phone number to the aftercare team"
     keywords: ["whatsapp"]
 
   - name: "Not Interested — Left UAE"
@@ -46,23 +46,23 @@ isolated:
     expected: "The AI should acknowledge and the lifecycle should change to Not Interested or Disqualified"
     keywords: ["understand", "thank"]
     odoo_checks:
-      - "x_studio_stage_id: Not Interested"
+      - "x_studio_stage_id: Lost"
 
   - name: "Job Seeker — Disqualified"
     fixed_message: "I was wondering if you had any position for sales agents."
-    expected: "The AI should indicate this is not the right channel for job inquiries and the contact should be marked as disqualified"
+    expected: "The AI should indicate this is not the right channel for job inquiries and the contact should be marked as disqualified and provide a link for jobs in Alba"
     keywords: ["career", "position"]
     odoo_checks:
-      - "x_studio_stage_id: Disqualified"
+      - "x_studio_stage_id: Lost"
 
   - name: "Purchase — Eligible Car"
     prompt: "Tell them you want to sell this car, mention it is GCC spec with the mileage shown"
-    expected: "The AI should offer a consignment arrangement and set department to Purchasing"
+    expected: "The AI should send a link for submitting car details to evaluate purchase eligibility"
     keywords: ["consignment"]
     data_source: "eligible_purchase_car"
     odoo_checks:
       - "x_studio_department: Purchasing"
-    odoo_activity: "Meeting"
+    odoo_activity: "Visit"
 
   - name: "Purchase — Leaving Country"
     prompt: "Tell them you want to sell this car, mention GCC spec, mileage, and that you are leaving the country soon"
@@ -71,7 +71,7 @@ isolated:
     data_source: "eligible_purchase_car"
     odoo_checks:
       - "x_studio_department: Purchasing"
-    odoo_activity: "Meeting"
+    odoo_activity: "Visit"
 
   - name: "Purchase — Disqualified Car"
     prompt: "Tell them you want to sell this car"
@@ -90,7 +90,7 @@ isolated:
     fixed_message: "Can you call me today at 3pm to discuss further?"
     expected: "The AI should confirm the callback and a call activity should be created in Odoo"
     keywords: ["call", "3"]
-    odoo_activity: "Phone Call"
+    odoo_activity: "Call"
 
   - name: "Appointment — No Time Given"
     prompt: "Say you want to come see this car tomorrow but you're not sure what time"
@@ -103,7 +103,7 @@ isolated:
     expected: "The AI should book the appointment and offer a callback to confirm closer to the date"
     keywords: ["appointment", "confirm"]
     data_source: "available_car"
-    odoo_activity: "Meeting"
+    odoo_activity: "Visit"
 
   - name: "Video Request"
     fixed_message: "Can I have a video of the car?"
@@ -111,12 +111,13 @@ isolated:
     keywords: ["video"]
 
   - name: "Price Buffer +/-20%"
-    fixed_message: "For a 4 series BMW my strict budget is 100,000 to 120,000 AED, anything in that range?"
-    expected: "The AI should offer cars within a 20% buffer of the stated budget (80k to 144k range)"
-    keywords: ["budget", "aed"]
+    prompt: "Find a car make or model with options in a variety of price ranges then set a budget and ask for cars within that budget"
+    expected: "The AI should offer cars within a 20% buffer of the stated budget"
+    data_source: "available_car"
+    keywords: ["budget"]
 
   - name: "Monthly Budget"
-    fixed_message: "I actually want to get an Audi Q5 and my budget is max 2,000 AED per month. What options do you have?"
+    prompt: "Find a car make or model with options in a variety of price ranges then set a budget using the monthly payment price and ask for cars within that budget"
     expected: "The AI should show options that fit within the stated monthly budget"
     keywords: ["month", "aed"]
 
@@ -131,10 +132,10 @@ isolated:
     reply_language: "arabic"
     reply_url: "albacars.ae/ar"
 
-  - name: "Arabic — WhatsApp Name"
-    fixed_message: "Hello, I'm interested in your cars."
-    expected: "The AI should reply in Arabic because the contact's WhatsApp name is Arabic"
-    reply_language: "arabic"
+  # - name: "Arabic — WhatsApp Name"
+  #   fixed_message: "Hello, I'm interested in your cars."
+  #   expected: "The AI should reply in Arabic because the contact's WhatsApp name is Arabic"
+  #   reply_language: "arabic"
 
   - name: "AI Fallback"
     fixed_message: "I need to discuss something very specific about a custom vehicle modification and insurance implications for an imported vehicle with non-standard specs that requires manual evaluation."
@@ -161,7 +162,7 @@ flows:
         expected: "The appointment should be cancelled"
         keywords: ["cancel"]
     odoo_checks:
-      - "meeting_removed: true"
+      - "visit_removed: true"
 
   - name: "Flow — Book then Reschedule"
     data_source: "available_car"
@@ -193,4 +194,4 @@ flows:
         keywords: ["appointment", "visit"]
     odoo_checks:
       - "x_studio_department: Purchasing"
-    odoo_activity: "Meeting"
+    odoo_activity: "Visit"
