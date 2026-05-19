@@ -1,0 +1,196 @@
+# =============================================================================
+# Alba AI Agent Test Suite — Test Case Definitions
+# =============================================================================
+#
+# Each test case is defined with:
+#   name          - Display name for reporting
+#   prompt        - Instruction for AI to generate a customer message (used if no fixed_message)
+#   fixed_message - Optional. If provided, sent as-is instead of generating via AI.
+#   expected      - What the AI agent's reply should convey (used for AI semantic check)
+#   keywords      - Optional. Fast keyword check before AI fallback. List of strings.
+#   reply_language - Optional. "english" (default) or "arabic"
+#   reply_url     - Optional. URL fragment that should appear in the reply.
+#   data_source   - Optional. Which stock sheet function to call for car data.
+#                   One of: coming_soon_car, available_car, eligible_purchase_car,
+#                   disqualified_purchase_car, price_range, monthly_budget
+#   data_params   - Optional. Params for data_source (e.g. min/max price).
+#   odoo_checks   - Optional. List of "field: expected_value" strings.
+#   odoo_activity - Optional. Activity type to check for (e.g. "Meeting", "Phone Call").
+#   no_odoo_activity - Optional. If true, assert NO activities exist.
+#   type          - "isolated" (default) or "flow"
+#   steps         - For flows only. List of step objects with same fields as above.
+#
+# =============================================================================
+
+isolated:
+
+  - name: "Coming Soon — Callback offered"
+    prompt: "Ask about this coming soon car and whether it's available"
+    expected: "The response should mention a callback or that someone will call back, and should identify the car is not immediately available"
+    keywords: ["callback", "call"]
+    data_source: "coming_soon_car"
+    no_odoo_activity: true
+
+  - name: "Aftercare — Pre form submission"
+    fixed_message: "Hey I have an issue with my car and since it's still under warranty with you guys I'm hoping you could help. There is some weird knocking in the engine bay."
+    expected: "The AI should send a form link for the customer to submit their warranty/aftercare issue"
+    keywords: ["form"]
+
+  - name: "Aftercare — Post form submission"
+    fixed_message: "I've already submitted the form."
+    expected: "The AI should send a WhatsApp link to the aftercare team"
+    keywords: ["whatsapp"]
+
+  - name: "Not Interested — Left UAE"
+    fixed_message: "I've left the UAE and will not be proceeding."
+    expected: "The AI should acknowledge and the lifecycle should change to Not Interested or Disqualified"
+    keywords: ["understand", "thank"]
+    odoo_checks:
+      - "x_studio_stage_id: Not Interested"
+
+  - name: "Job Seeker — Disqualified"
+    fixed_message: "I was wondering if you had any position for sales agents."
+    expected: "The AI should indicate this is not the right channel for job inquiries and the contact should be marked as disqualified"
+    keywords: ["career", "position"]
+    odoo_checks:
+      - "x_studio_stage_id: Disqualified"
+
+  - name: "Purchase — Eligible Car"
+    prompt: "Tell them you want to sell this car, mention it is GCC spec with the mileage shown"
+    expected: "The AI should offer a consignment arrangement and set department to Purchasing"
+    keywords: ["consignment"]
+    data_source: "eligible_purchase_car"
+    odoo_checks:
+      - "x_studio_department: Purchasing"
+    odoo_activity: "Meeting"
+
+  - name: "Purchase — Leaving Country"
+    prompt: "Tell them you want to sell this car, mention GCC spec, mileage, and that you are leaving the country soon"
+    expected: "The AI should offer consignment, set department to Purchasing, and a CRM lead should be created"
+    keywords: ["consignment"]
+    data_source: "eligible_purchase_car"
+    odoo_checks:
+      - "x_studio_department: Purchasing"
+    odoo_activity: "Meeting"
+
+  - name: "Purchase — Disqualified Car"
+    prompt: "Tell them you want to sell this car"
+    expected: "The AI should indicate the car does not meet their criteria and is not accepted"
+    keywords: ["unfortunately", "criteria"]
+    data_source: "disqualified_purchase_car"
+    odoo_checks:
+      - "x_studio_stage_id: Disqualified"
+
+  - name: "Banking Rep Inquiry"
+    fixed_message: "Do you have bank and lease representatives on site?"
+    expected: "The AI should mention that they have a dedicated finance team rather than bank representatives"
+    keywords: ["finance"]
+
+  - name: "Callback Requested"
+    fixed_message: "Can you call me today at 3pm to discuss further?"
+    expected: "The AI should confirm the callback and a call activity should be created in Odoo"
+    keywords: ["call", "3"]
+    odoo_activity: "Phone Call"
+
+  - name: "Appointment — No Time Given"
+    prompt: "Say you want to come see this car tomorrow but you're not sure what time"
+    expected: "The AI should offer a callback to confirm the appointment time later"
+    keywords: ["callback", "confirm", "time"]
+    data_source: "available_car"
+
+  - name: "Appointment — Far Date (>1 week)"
+    prompt: "Ask to come see this car on a date more than one week from today"
+    expected: "The AI should book the appointment and offer a callback to confirm closer to the date"
+    keywords: ["appointment", "confirm"]
+    data_source: "available_car"
+    odoo_activity: "Meeting"
+
+  - name: "Video Request"
+    fixed_message: "Can I have a video of the car?"
+    expected: "The AI should say they don't have videos of their cars"
+    keywords: ["video"]
+
+  - name: "Price Buffer +/-20%"
+    fixed_message: "For a 4 series BMW my strict budget is 100,000 to 120,000 AED, anything in that range?"
+    expected: "The AI should offer cars within a 20% buffer of the stated budget (80k to 144k range)"
+    keywords: ["budget", "aed"]
+
+  - name: "Monthly Budget"
+    fixed_message: "I actually want to get an Audi Q5 and my budget is max 2,000 AED per month. What options do you have?"
+    expected: "The AI should show options that fit within the stated monthly budget"
+    keywords: ["month", "aed"]
+
+  - name: "On My Way"
+    fixed_message: "I'm on my way."
+    expected: "The AI should reply with the Alba Cars address (Warehouse 17) and close the conversation"
+    keywords: ["alba", "warehouse"]
+
+  - name: "Arabic — Text Message"
+    fixed_message: "مرحبا، أنا مهتم بشراء سيارة. هل يمكنك مساعدتي؟"
+    expected: "The AI should reply entirely in Arabic and include an Arabic URL"
+    reply_language: "arabic"
+    reply_url: "albacars.ae/ar"
+
+  - name: "Arabic — WhatsApp Name"
+    fixed_message: "Hello, I'm interested in your cars."
+    expected: "The AI should reply in Arabic because the contact's WhatsApp name is Arabic"
+    reply_language: "arabic"
+
+  - name: "AI Fallback"
+    fixed_message: "I need to discuss something very specific about a custom vehicle modification and insurance implications for an imported vehicle with non-standard specs that requires manual evaluation."
+    expected: "The AI should fall back and say something like 'just a moment I'll be right back', lifecycle should change to Help Emma"
+    keywords: ["moment", "back"]
+    odoo_checks:
+      - "x_studio_stage_id: Help Emma"
+
+  - name: "UAE Number Request"
+    fixed_message: "Can I come in tonight at 7pm for a test drive?"
+    expected: "The AI should ask for a UAE phone number to proceed with booking"
+    keywords: ["uae", "number"]
+
+
+flows:
+
+  - name: "Flow — Book then Cancel"
+    data_source: "available_car"
+    steps:
+      - prompt: "Say you'd like to come see this car tomorrow at 2pm"
+        expected: "The appointment should be booked and confirmed"
+        keywords: ["appointment", "confirm"]
+      - fixed_message: "Actually, can you cancel my appointment?"
+        expected: "The appointment should be cancelled"
+        keywords: ["cancel"]
+    odoo_checks:
+      - "meeting_removed: true"
+
+  - name: "Flow — Book then Reschedule"
+    data_source: "available_car"
+    steps:
+      - prompt: "Say you'd like to come see this car today at 3pm"
+        expected: "The appointment should be booked"
+        keywords: ["appointment"]
+      - fixed_message: "Can I come see the car at 10pm instead?"
+        expected: "The AI should inform that the last available slot is 9:30 and not allow booking at 10pm"
+        keywords: ["9:30", "last"]
+
+  - name: "Flow — Aftercare Pre then Post Form"
+    steps:
+      - fixed_message: "Hey I have an issue with my car and since it's still under warranty I'm hoping you could help. There is a knocking sound from the engine bay."
+        expected: "The AI should send a form link for the customer to submit their aftercare issue"
+        keywords: ["form"]
+      - fixed_message: "I've already submitted the form."
+        expected: "The AI should send a WhatsApp link to the aftercare team since the form was already submitted"
+        keywords: ["whatsapp"]
+
+  - name: "Flow — Purchase Consignment Full Flow"
+    data_source: "eligible_purchase_car"
+    steps:
+      - prompt: "Tell them you want to sell this car, mention GCC spec and mileage"
+        expected: "The AI should offer a consignment arrangement"
+        keywords: ["consignment"]
+      - fixed_message: "Yes I would like to proceed with the consignment."
+        expected: "The AI should book an appointment or ask the customer to visit after agreeing to consignment"
+        keywords: ["appointment", "visit"]
+    odoo_checks:
+      - "x_studio_department: Purchasing"
+    odoo_activity: "Meeting"
