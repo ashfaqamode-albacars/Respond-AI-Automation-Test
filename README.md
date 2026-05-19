@@ -1,4 +1,4 @@
-# Alba AI Agent Test Suite
+# Alba AI Agent Test Suite (Version 1.0)
 
 Automated QA tool for testing Alba's Respond.io AI agent. Simulates customer WhatsApp messages and asserts AI responses, Respond.io lifecycle changes, and Odoo side effects.
 
