@@ -293,15 +293,15 @@ def run_flow_test(test_case: dict, your_phone: str, get_contact_id) -> dict:
 
         for check_str in odoo_checks:
             field, expected_val = _parse_odoo_check(check_str)
-            # Special case: meeting_removed
-            if field == "meeting_removed" and expected_val.lower() == "true":
+            # Special case: visit_removed
+            if field == "visit_removed" and expected_val.lower() == "true":
                 if lead:
                     activities = odoo.get_activities_for_lead(lead["id"])
-                    no_meeting = not odoo.has_activity_of_type(activities, "Meeting")
-                    odoo_parts.append(("meeting_removed", no_meeting,
-                                       f"Meeting removed: {'✅' if no_meeting else '❌ still present'}"))
+                    no_visit = not odoo.has_activity_of_type(activities, "Visit")
+                    odoo_parts.append(("visit_removed", no_visit,
+                                       f"Visit removed: {'✅' if no_visit else '❌ still present'}"))
                 else:
-                    odoo_parts.append(("meeting_removed", False, "No lead found"))
+                    odoo_parts.append(("visit_removed", False, "No lead found"))
             else:
                 if lead:
                     passed, detail = odoo.assert_lead_field(lead, field, expected_val)
